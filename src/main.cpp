@@ -53,6 +53,8 @@ int logStuff;
 bool resetting = false;
 
 bool sustainOn = false;
+bool softPedalOn = false;
+bool sostenutoPedalOn = false;
 bool rightDown = false;
 
 int scanSetChoice = 0;
@@ -83,6 +85,8 @@ static int qwertyEmulator = 1;
 static int enableOutput = 1;
 static int eightyeightkey = 1;
 static int sustain = 1;
+static int sostenuto = 1;
+static int softPedal = 1;
 static int velocity = 1;
 
 int sustainCutoff = 64; // Inclusive
@@ -132,7 +136,7 @@ void refreshSettings(){
 }
 
 void resetSettings() {
-    
+
     alwaysontop = true;
 
     enableOutput = true;
@@ -176,6 +180,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     settingsHandler.AddSetting("Enable output", &enableOutput);
     settingsHandler.AddSetting("88-key support", &eightyeightkey);
     settingsHandler.AddSetting("Sustain", &sustain);
+    settingsHandler.AddSetting("Sostenuto", &sostenuto);
+    settingsHandler.AddSetting("Soft Pedal", &softPedal);
     settingsHandler.AddSetting("Velocity", &velocity);
     settingsHandler.AddSetting("Sustain cutoff", &sustainCutoff);
     settingsHandler.AddSetting("Log stuff", &logStuff);
@@ -232,7 +238,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     fflush(stdoutNew);
 
-    // Load fonts 
+    // Load fonts
     for (auto& p : std::filesystem::recursive_directory_iterator("fonts")) // Add the rest of the fonts in fonts/
     {
         if (p.path().extension() == ".ttf") {
@@ -364,7 +370,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                         ImGui::TextColored(ImVec4(0, 0, 1, 1), "%c ", letterNoteMap.c_str()[note - 36]);;
                     }
                     // High
-                    else if (note > 96 && note < 122) { 
+                    else if (note > 96 && note < 122) {
                         ImGui::TextColored(ImVec4(1, 0, 0, 1), "%c ", highNotes.c_str()[note - 97]);
                     }
                     else {
@@ -407,7 +413,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             }
 
             ImGui::Text("Opacity");
-            if (ImGui::SliderInt("##", &windowOpacity, 10, 100, "%d%%")) { 
+            if (ImGui::SliderInt("##", &windowOpacity, 10, 100, "%d%%")) {
                 logger.AddLog("Setting opacity to %d\n", windowOpacity);
                 SDL_SetWindowOpacity(window, (float)windowOpacity / 100);
             }
@@ -415,7 +421,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             static bool showStyleEditor = false;
             if (ImGui::Button((!showStyleEditor ? "Open theme editor" : "Close theme editor")))
                 showStyleEditor = !showStyleEditor;
-            
+
             const char* layouts[] = { "Small", "Tall" };
             static const char* current_item = (smallLayout?"Small":"Tall");
 
@@ -448,7 +454,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
             if (showStyleEditor) {
                 ImGui::Begin("Theme Editor");
-                
+
                 ImGui::ShowStyleEditor();
                 ImGui::End();
             }
@@ -468,14 +474,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
             ImGui::Checkbox("88-key support", (bool*)& eightyeightkey);
 
-            ImGui::Checkbox("Sustain", (bool*)& sustain);
+            ImGui::Checkbox("Sustain Pedal", (bool*)& sustain);
+            ImGui::Checkbox("Sostenuto Pedal", (bool*)& sostenuto);
+            ImGui::Checkbox("Soft Pedal", (bool*)& softPedal);
 
             ImGui::Text("Sustain cutoff");
             ImGui::SliderInt("", &sustainCutoff, 0, 127);
             if (ImGui::IsItemHovered()) {
                 ImGui::SetTooltip("CTRL + Click to enter a value,\ndefault is 64");
             }
-   
+
             ImGui::Checkbox("Velocity", (bool*)& velocity);
 
             static bool foundDevice = false;
@@ -575,7 +583,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 if (ImGui::Button("Yes")) {
                     printf("Resetting settings\n");
                     resetSettings();
-                    resetting = false; 
+                    resetting = false;
                 }
                 ImGui::SameLine();
                 if (ImGui::Button("No..."))
@@ -614,7 +622,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             //SDL_SetRelativeMouseMode(SDL_TRUE);
             SDL_SetWindowPosition(window, winx + x, winy + y);
         }
-        
+
         // Limit the FPS to 100
         // TODO: Rewrite this entire trainwreck of a project
         SDL_Delay(10);
@@ -693,20 +701,50 @@ void pollCallback(PmTimestamp timestamp, uint8_t status, PmMessage Data1, PmMess
         logger.AddLog("Control change: [1]: %04X [2]: %04X\n", Data1, Data2);
         if (Data1 == 0x40) {                //      http://midi.teragonaudio.com/tech/midispec/hold.htm     -   Sustain Pedal
             if (!sustain) {
-                logger.AddLog("Skipping sustain control\n");
+                logger.AddLog("Skipping sustain pedal control\n");
                 return;
             }
             if (Data2 >= sustainCutoff && !sustainOn) {
                 std::async(std::launch::async, dyn_sendKeyDown, ' ');// dyn_sendKeyDown(' ');
                 sustainOn = true;
-                logger.AddLog("Sustain down");
+                logger.AddLog("Sustain pedal down\n");
             }
             else if (Data2 < sustainCutoff && sustainOn) {
                 std::async(std::launch::async, dyn_sendKeyUp, ' ', 'm');//dyn_sendKeyUp(' ', 'm');
                 sustainOn = false;
-                logger.AddLog("Sustain up");
+                logger.AddLog("Sustain pedal up\n");
             }
             return;
+        }
+        else if (Data1 == 0x42) {                //      http://midi.teragonaudio.com/tech/midispec/sus.htm     -   Sostenuto Pedal
+            if (!sostenuto) {
+                logger.AddLog("Skipping sostenuto pedal control\n");
+            }
+            if (Data2 >= sustainCutoff && !sostenutoPedalOn) {
+                std::async(std::launch::async, dyn_sendKeyDown, '\r');
+                sostenutoPedalOn = true;
+                logger.AddLog("Sostenuto pedal down\n");
+            }
+            else if (Data2 < sustainCutoff && sostenutoPedalOn) {
+                std::async(std::launch::async, dyn_sendKeyUp, '\r', 'm');
+                sostenutoPedalOn = false;
+                logger.AddLog("Sostenuto pedal up\n");
+            }
+        }
+        else if (Data1 == 0x43) {                //      http://midi.teragonaudio.com/tech/midispec/soft.htm     -   Soft Pedal
+            if (!softPedal) {
+                logger.AddLog("Skipping soft pedal control\n");
+            }
+            if (!softPedalOn) {
+                std::async(std::launch::async, dyn_sendKeyDown, '\b');
+                softPedalOn = true;
+                logger.AddLog("Soft pedal down\n");
+            }
+            else {
+                std::async(std::launch::async, dyn_sendKeyUp, '\b', 'm');
+                softPedalOn = false;
+                logger.AddLog("Soft pedal up\n");
+            }
         }
     }
 

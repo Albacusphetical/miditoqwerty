@@ -9,9 +9,11 @@ std::unordered_map<unsigned char, short> scanSet3Map;
 
 const int SHIFT_SCAN = getScanCode(VK_SHIFT);
 const int SPACE_SCAN = getScanCode(VK_SPACE);
+const int BACKSPACE_SCAN = getScanCode(VK_BACK);
+const int ENTER_SCAN = getScanCode(VK_RETURN);
 const int CTRL_SCAN = getScanCode(VK_CONTROL);
 const int ALT_SCAN = getScanCode(VK_LMENU);
- 
+
 // just collapse this in the ide
 void loadScansets() {
 
@@ -26,6 +28,8 @@ void loadScansets() {
 	scanSet1Map['9'] = 10;
 	scanSet1Map['0'] = 11;
 	scanSet1Map[' '] = SPACE_SCAN;
+	scanSet1Map['\b'] = BACKSPACE_SCAN;
+	scanSet1Map['\r'] = ENTER_SCAN;
 
 	scanSet1Map['a'] = 3;
 	scanSet1Map['a'] = 30;
@@ -78,6 +82,8 @@ void loadScansets() {
 	scanSet2Map['9'] = 0x46;
 	scanSet2Map['0'] = 0x45;
 	scanSet2Map[' '] = SPACE_SCAN;
+	scanSet2Map['\b'] = BACKSPACE_SCAN;
+	scanSet2Map['\r'] = ENTER_SCAN;
 
 	scanSet2Map['a'] = 0x1c;
 	scanSet2Map['b'] = 0x32;
@@ -117,6 +123,8 @@ void loadScansets() {
 	scanSet3Map['9'] = 10;
 	scanSet3Map['0'] = 11;
 	scanSet3Map[' '] = SPACE_SCAN;
+	scanSet3Map['\b'] = BACKSPACE_SCAN;
+	scanSet3Map['\r'] = ENTER_SCAN;
 
 	scanSet3Map['a'] = 3;
 	scanSet3Map['a'] = 30;
